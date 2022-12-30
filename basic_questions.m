@@ -1,10 +1,13 @@
 %This ia a final project of Computational Methods for Shallow Water Waves
 %We used 2D Linear Shallow water to simulate tsunami at Japan on March 11th in 2011
+%The method we use includes finite difference methods, sponger layer and three orders of strong-stability preserving runge-kutta time-steppers
 
 %%%%%%%%%%%%%TSUNAMI SIMULATION%%%%%%%%%%%%%%
 
 clc
 clear
+
+%%load intial wave height and water depth
 load('bathymetry_MATLAB.mat');
 load('IC_MATLAB.mat');
 
