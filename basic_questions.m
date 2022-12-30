@@ -1,370 +1,424 @@
-%%%%%%%%%%%%%TSUNAMI SIMULATION
-clc;
-clear all;
-load('bathymetry_MATLAB.mat')
-load('IC_MATLAB.mat');
-y=(X-X(1))*111000;%unit m
-x=(Y-Y(1))*90000;%unit m
-delta_x=x(2)-x(1);
-delta_y=y(2)-y(1);
-p=1:1:1200;
-yi=1:1:1200;
-xi=1:1:1200;
-y1=interp1(p,y,yi,'linear');%%%%interpt
-x1=interp1(p,x,xi,'linear');
-[x2 y2]= meshgrid(x,y);
-x1i=x(1):1*delta_x:x(end);
-y1i=y(1):1*delta_y:y(end);
-[x2i y2i]= meshgrid(x1i,y1i);
-eta01=interp2(x2,y2,eta0,x2i,y2i,'cubic');%%%interpt the initial condition 
-bathy1=-interp2(x2,y2,bathy,x2i,y2i,'cubic');%%%interpt the bathy
-g=9.81;
-%%%%%%%%create zero matrix and add the initail condition
-alpha=zeros(1,length(x1)+4);
-alpha1=zeros(length(y1)+4,1);
-alpha3=zeros(length(y1)+4,1);
-alpha2=zeros(1,length(x1)+4);
-U1=zeros(length(y1)+4,length(x1)+4);
-V1=zeros(length(x1)+4,length(x1)+4);
-ita2=zeros(length(x1)+4,length(y1)+4);
-ita2(3:length(x1)+2,3:length(y1)+2)=eta01;
-h=zeros(length(x1)+4,length(x1)+4);
-h(3:length(x1)+2,3:length(y1)+2)=bathy1;
-y=y1;
-x=x1;
-h(1,:)=h(5,:);
-h(2,:)=h(4,:);
-h(length(y)+4,:)=h(length(y),:);
-h(length(y)+3,:)=h(length(y)+1,:);
-h(:,1)=h(:,5);
-h(:,2)=h(:,4);
-h(:,length(x)+4)=h(:,length(x));
-h(:,length(x)+3)=h(:,length(x)+1);
-%%%%%%%%sponge layer
-    for i=1:length(h)
-        for j=1:length(h)
-            if h(j,i)<0
-                h(j,i)=0;
-            end
-        end
-    end
-    delta_x=x(2)-x(1);
-    delta_y=y(2)-y(1);
-    delta_t=min(delta_x,delta_y)/sqrt(g*9000)*0.9;
-    t=0:delta_t:3600;
-    C={};
-    ls=5*delta_x;
-    ls1=5*delta_y
-    n=1;
-for i=1:length(x1)  %%%left boundary
-    if x1(i)<=ls;
-        alpha(1,i+2)=0.5-0.5*cos((x1(i))*pi/ls);
-    else
-        alpha(1,i+2)=1;
-    end
-end
-for j=1:length(y1)
-    if y1(j)<=ls1 ; %%% up boundary
-        alpha1(j+2,1)=0.5+0.5*cos((y1(j)-ls1)*pi/ls1);
-    else
-        alpha1(j+2,1)=1;
-    end
-end
-for i=1:length(x1)%%%right boundary
-    if x1(i)>=x1(end)-ls ;
-        alpha2(1,i+2)=0.5-0.5*cos((x1(end)-x1(i))*pi/ls);
-    else
-        alpha2(1,i+2)=1;
-    end
-end
-for j=1:length(y1)%%%down boundary
-    if y1(j)>=y1(end)-ls1;
-        alpha3(j+2,1)=0.5-0.5*cos((y1(end)-y1(j))*pi/ls1);
-    else
-        alpha3(j+2,1)=1;
-    end
-end
-%%%%%%%%%%simulation begin
-for k=1:length(t)
-    %%%%%%%% mirror condition
-    ita2(1,:)=ita2(5,:);
-    ita2(2,:)=ita2(4,:);
-    ita2(length(y)+4,:)=ita2(length(y),:);
-    ita2(length(y)+3,:)=ita2(length(y)+1,:);
-    ita2(:,1)=ita2(:,5);
-    ita2(:,2)=ita2(:,4);
-    ita2(:,length(x)+4)=ita2(:,length(x));
-    ita2(:,length(x)+3)=ita2(:,length(x)+1);
-    U1(1,:)=U1(5,:);
-    U1(2,:)=U1(4,:);
-    U1(length(y)+4,:)=U1(length(y),:);
-    U1(length(y)+3,:)=U1(length(y)+1,:);
-    U1(:,1)=-U1(:,5);
-    U1(:,2)=-U1(:,4);
-    U1(:,length(x)+4)=-U1(:,length(x));
-    U1(:,length(x)+3)=-U1(:,length(x)+1);
-    V1(1,:)=-V1(5,:);
-    V1(2,:)=-V1(4,:);
-    V1(length(y)+4,:)=-V1(length(y),:);
-    V1(length(y)+3,:)=-V1(length(y)+1,:);
-    V1(:,1)=V1(:,5);
-    V1(:,2)=V1(:,4);
-    V1(:,length(x)+4)=V1(:,length(x));
-    V1(:,length(x)+3)=V1(:,length(x)+1);
-    %%%%%%%%%%R-K method first round
-           for i=3:length(x)+2
-        for j=3:length(y)+2
-            ita_star(j,i)=ita2(j,i)-(delta_t/(12*delta_x))*(-U1(j,i+2)*h(j,i+2)+8*U1(j,i+1)*h(j,i+1)-8*U1(j,i-1)*h(j,i-1)+U1(j,i-2)*h(j,i-2))-(delta_t/(12*delta_y))*(-V1(j+2,i)*h(j+2,i)+8*V1(j+1,i)*h(j+1,i)-8*V1(j-1,i)*h(j-1,i)+V1(j-2,i)*h(j-2,i));
-            U1_star(j,i)=U1(j,i)-(delta_t/(12*delta_x))*g*(-ita2(j,i+2)+8*ita2(j,i+1)-8*ita2(j,i-1)+ita2(j,i-2));
-            V1_star(j,i)=V1(j,i)-(delta_t/(12*delta_y))*g*(-ita2(j+2,i)+8*ita2(j+1,i)-8*ita2(j-1,i)+ita2(j-2,i));
-        end
-           end
-        ita_star(1,:)=ita_star(5,:);
-    ita_star(2,:)=ita_star(4,:);
-    ita_star(length(y)+4,:)=ita_star(length(y),:);
-    ita_star(length(y)+3,:)=ita_star(length(y)+1,:);
-    ita_star(:,1)=ita_star(:,5);
-    ita_star(:,2)=ita_star(:,4);
-    ita_star(:,length(x)+4)=ita_star(:,length(x));
-    ita_star(:,length(x)+3)=ita_star(:,length(x)+1);
-    U1_star(1,:)=U1_star(5,:);
-    U1_star(2,:)=U1_star(4,:);
-    U1_star(length(y)+4,:)=U1_star(length(y),:);
-    U1_star(length(y)+3,:)=U1_star(length(y)+1,:);
-    U1_star(:,1)=-U1_star(:,5);
-    U1_star(:,2)=-U1_star(:,4);
-    U1_star(:,length(x)+4)=-U1_star(:,length(x));
-    U1_star(:,length(x)+3)=-U1_star(:,length(x)+1);
-    V1_star(1,:)=-V1_star(5,:);
-    V1_star(2,:)=-V1_star(4,:);
-    V1_star(length(y)+4,:)=-V1_star(length(y),:);
-    V1_star(length(y)+3,:)=-V1_star(length(y)+1,:);
-    V1_star(:,1)=V1_star(:,5);
-    V1_star(:,2)=V1_star(:,4);
-    V1_star(:,length(x)+4)=V1_star(:,length(x));
-    V1_star(:,length(x)+3)=V1_star(:,length(x)+1);
-%%%%%%%%%%R-K method first round
-%%%%%%%%%%R-K method second round
-           for i=3:length(x)+2
-        for j=3:length(y)+2
-            ita_double_star(j,i)=3/4*ita2(j,i)+1/4*ita_star(j,i)-1/4*(delta_t/(12*delta_x))*(-U1_star(j,i+2)*h(j,i+2)+8*U1_star(j,i+1)*h(j,i+1)-8*U1_star(j,i-1)*h(j,i-1)+U1_star(j,i-2)*h(j,i-2))-1/4*(delta_t/(12*delta_y))*(-V1_star(j+2,i)*h(j+2,i)+8*V1_star(j+1,i)*h(j+1,i)-8*V1_star(j-1,i)*h(j-1,i)+V1_star(j-2,i)*h(j-2,i));
-            V1_double_star(j,i)=3/4*V1(j,i)+1/4*V1_star(j,i)-1/4*(delta_t/(12*delta_x))*g*(-ita_star(j+2,i)+8*ita_star(j+1,i)-8*ita_star(j-1,i)+ita_star(j-2,i));
-            U1_double_star(j,i)=3/4*U1(j,i)+1/4*U1_star(j,i)-1/4*(delta_t/(12*delta_y))*g*(-ita_star(j,i+2)+8*ita_star(j,i+1)-8*ita_star(j,i-1)+ita_star(j,i-2));
-        end
-           end
-        ita_double_star(1,:)=ita_double_star(5,:);
-    ita_double_star(2,:)=ita_double_star(4,:);
-    ita_double_star(length(y)+4,:)=ita_double_star(length(y),:);
-    ita_double_star(length(y)+3,:)=ita_double_star(length(y)+1,:);
-    ita_double_star(:,1)=ita_double_star(:,5);
-    ita_double_star(:,2)=ita_double_star(:,4);
-    ita_double_star(:,length(x)+4)=ita_double_star(:,length(x));
-    ita_double_star(:,length(x)+3)=ita_double_star(:,length(x)+1);
-    U1_double_star(1,:)=U1_double_star(5,:);
-    U1_double_star(2,:)=U1_double_star(4,:);
-    U1_double_star(length(y)+4,:)=U1_double_star(length(y),:);
-    U1_double_star(length(y)+3,:)=U1_double_star(length(y)+1,:);
-    U1_double_star(:,1)=-U1_double_star(:,5);
-    U1_double_star(:,2)=-U1_double_star(:,4);
-    U1_double_star(:,length(x)+4)=-U1_double_star(:,length(x));
-    U1_double_star(:,length(x)+3)=-U1_double_star(:,length(x)+1);
-    V1_double_star(1,:)=-V1_double_star(5,:);
-    V1_double_star(2,:)=-V1_double_star(4,:);
-    V1_double_star(length(y)+4,:)=-V1_double_star(length(y),:);
-    V1_double_star(length(y)+3,:)=-V1_double_star(length(y)+1,:);
-    V1_double_star(:,1)=V1_double_star(:,5);
-    V1_double_star(:,2)=V1_double_star(:,4);
-    V1_double_star(:,length(x)+4)=V1_double_star(:,length(x));
-    V1_double_star(:,length(x)+3)=V1_double_star(:,length(x)+1);
-    %%%%%%%%%%R-K method second round
-    %%%%%%%%%%R-K method third round
-               for i=3:length(x)+2
-        for j=3:length(y)+2
-            ita2(j,i)=1/3*ita2(j,i)+2/3*ita_double_star(j,i)-2/3*(delta_t/(12*delta_x))*(-U1_double_star(j,i+2)*h(j,i+2)+8*U1_double_star(j,i+1)*h(j,i+1)-8*U1_double_star(j,i-1)*h(j,i-1)+U1_double_star(j,i-2)*h(j,i-2))-2/3*(delta_t/(12*delta_y))*(-V1_double_star(j+2,i)*h(j+2,i)+8*V1_double_star(j+1,i)*h(j+1,i)-8*V1_double_star(j-1,i)*h(j-1,i)+V1_double_star(j-2,i)*h(j-2,i));
-            V1(j,i)=1/3*V1(j,i)+2/3*V1_double_star(j,i)-2/3*(delta_t/(12*delta_x))*g*(-ita_double_star(j+2,i)+8*ita_double_star(j+1,i)-8*ita_double_star(j-1,i)+ita_double_star(j-2,i));
-            U1(j,i)=1/3*U1(j,i)+2/3*U1_double_star(j,i)-2/3*(delta_t/(12*delta_x))*g*(-ita_double_star(j,i+2)+8*ita_double_star(j,i+1)-8*ita_double_star(j,i-1)+ita_double_star(j,i-2));
-        end
-               end
-  %%%%%%%%%%R-K method third round
-  %%%%%%%%%%disappear wave by sponge layer
-   for i=3:length(x)+2
-                   for j=3:length(y)+2
-                       ita2(j,i)=ita2(j,i)*alpha(1,i)*alpha1(j,1)*alpha2(1,i)*alpha3(j,1);
-                       V1(j,i)=V1(j,i)*alpha1(j,1)*alpha3(j,1);
-                       U1(j,i)=U1(j,i)*alpha(1,i)*alpha2(1,i);
-                   end
-   end
-    %%%%%%%%%%disappear wave by sponge layer
-     %%%%%%%%%%select data because the data is too bid that saving data has
-     %%%%%%%%%%problem and increase the computing Efficiency
-        ita3=ita2;
-        if k==20*n
-        for i=3:length(x)+2
-        for j=3:length(y)+2
-            if h(j,i)==0
-                ita3(j,i)=NaN;
-            end
-        end 
-        end
-              C(n)= {ita3};
-              n=n+1;
-              t1(n)=t(k);
-        end
-               end
-%%%%%%%%%plot tsunami process
-for n=1:1:length(C)
-               ita4=C{1,n};
-               surf(x,y,ita4(3:length(x)+2,3:length(y)+2));
-               colormap jet;
-               colorbar ;
-               shading interp;
-               c.Label.String = '\eta(m)'
-               xlabel('x(m)')
-               ylabel('y(m)')
-               zlabel('\eta(m)')
-               title(['t=',num2str(t1(n)),'s'])
-               axis([x(1) x(end) y(1) y(end) -8.6 8.6])
-               view(0,90)
-               caxis([-8.6 8.6])
-               pause(0.0001)
-               
-end
-%%save as a gif
-clc 
-clear all
-load('1200s.mat');
-load('IC_MATLAB.mat');
-filename='homework.gif'
-for i=1:length(y)
-    if Y(i)>=40
-        k=Y(i)
-        break
-    end
-end
-for j=1:length(X)
-    if X(j)>=144.5
-        k=X(i)
-        break
-    end
-end
-for n=1:1:length(C); %%%save as a gif
-               ita4=C{1,n};
-               surf(X,Y,ita4(3:length(x)+2,3:length(y)+2));
-               box on
-               grid off
-               colormap jet ;
-               colorbar
-               c=colorbar
-               c.Location ='southoutside'
-               c.Label.String = '\eta(m)'
-               caxis([-8.6 8.6]);
-               shading interp;
-               view(0,90)
-               hold on
-               contour3(X,Y,h(3:length(x)+2,3:length(x)+2),1000:1000:8000,'w');
-               xlabel('Longitude(¢XE)')
-               ylabel('Latitude(¢XN)')
-               title(['t=2400s'])
-               axis([X(1) X(j) Y(1) Y(i)]);
-               hold off
-               pause(0.01)    
-               F=getframe(gcf);
-               im=frame2im(F);
-               [I,map]=rgb2ind(im,256);
-               k=n-0;
-              if k==1;
-              imwrite(I,map,filename,'gif','Loopcount',inf, 'DelayTime',0.02);
-              else
-              imwrite(I,map,filename,'gif','WriteMode','append', 'DelayTime',0.02);
-              end
-end
-convergence test
-load('bathymetry_MATLAB.mat');
-load('savecell_dxdy1127')
-load('savecell_dxdy751')
-load('savecell_dxdy375')
-load('savecell_dxdy281')
- 
-x1 = linspace(X(1),X(1200),400);
-y1 = linspace(Y(1),Y(1200),493);
-x2 = linspace(X(1),X(1200),600);
-y2 = linspace(Y(1),Y(1200),739);
-x3 = linspace(X(1),X(1200),1200);
-y3 = linspace(Y(1),Y(1200),1480);
-x4 = linspace(X(1),X(1200),1600);
-y4 = linspace(Y(1),Y(1200),1973);
-deltax1 = (x1(2)-x1(1))*90*1000;
-deltay1 = (y1(2)-y1(1))*111*1000;
-deltax2 =(x2(2)-x2(1))*90*1000;
-deltay2 = (y2(2)-y2(1))*111*1000;
-deltax3 = (x3(2)-x3(1))*90*1000;
-deltay3 = (y3(2)-y3(1))*111*1000;
-deltax4 = (x4(2)-x4(1))*90*1000;
-deltay4 = (y4(2)-y4(1))*111*1000;
- 
-figure(2)
-plot(x1,savecell_dxdy1127{1,length(savecell_dxdy1127(1,:))}(247,:),'Linewidth',1.5);%247
-hold on
-plot(x2,savecell_dxdy751{1,length(savecell_dxdy751(1,:))}(370,:),'-g','Linewidth',1);%370
-hold on
-plot(x3,savecell_dxdy375{1,length(savecell_dxdy375(1,:))}(740,:),'k','Linewidth',1.5);%740
-hold on
-plot(x4,savecell_dxdy281{1,2}(987,:),'r','Linewidth',1);%987
-hold off
-xlim([X(220) X(350)])
-title('At t=3600s','Fontsize',14)
-h = legend('\Deltax=\Deltay=1127m','\Deltax=\Deltay=751m','\Deltax=\Deltay=375m','\Deltax=\Deltay=281m')
-h.FontSize=14;
-xlabel('Longitude (\circE)','Fontsize',14)
-ylabel('\eta (m)','Fontsize',14)
-%%%%%%%%%%compare real data and simulate data
+%This ia a final project of Computational Methods for Shallow Water Waves
+%We used 2D Linear Shallow water to simulate tsunami at Japan on March 11th in 2011
+
+%%%%%%%%%%%%%TSUNAMI SIMULATION%%%%%%%%%%%%%%
+
 clc
-clear all
-load 1200.mat
+clear
+load('bathymetry_MATLAB.mat');
 load('IC_MATLAB.mat');
-%%%%%%%locking the range
-for i=1:length(y)
-    if Y(i)>=40
-        k=Y(i)
-        break
+
+%%set constant parameter
+g = 9.81;
+geox = X;
+geoy = Y;
+drawh = bathy;
+
+%%depth of land is set NaN 
+for j = 1 : length(geoy)
+    for i = 1 : length(geox)
+        if bathy(j,i) >= 0
+           drawh(j,i) = NaN;
+        end
     end
 end
-for j=1:length(X)
-    if X(j)>=144.5
-        k=X(i)
-        break
+for j = 1 : length(geoy)
+    for i = 1 : length(geox)
+        if bathy(j,i) >= 0
+           eta0(j,i) = NaN;
+        end
     end
 end
-%%%%%%%add poistion of station
-xp=[38.17873 39.21195 38.80402 39.59104 36.92341 38.44083 38.58083];
-yp=[141.69138 142.10587 141.90346 142.19832 141.19092 142.51006 142.59586] ;
-for n=1:length(xp)
-[~,i1]=min(abs(Y(:)-xp(n)));
-[~,j1]=min(abs(X(:)-yp(n)));
-a(n)=i1
-b(n)=j1
+for j = 1 : length(geoy)
+    for i = 1 : length(geox)
+        if bathy(j,i) >= 0
+           bathy(j,i) = 0;
+        end
+    end
 end
-for n=1;
-               ita4=C{1,n};
-               surf(X,Y,ita4(3:length(x)+2,3:length(y)+2));
-               hold on
-               plot3(X(b(1)),Y(a(1)),5,'r*')
-               plot3(X(b(2)),Y(a(2)),5,'r*')
-               plot3(X(b(3)),Y(a(3)),5,'r*')
-               plot3(X(b(4)),Y(a(4)),5,'r*')
-               plot3(X(b(5)),Y(a(5)),5,'r*')
-               plot3(X(b(6)),Y(a(6)),5,'r*')
-               plot3(X(b(7)),Y(a(7)),5,'r*')
-               box on
-               grid off
-               colormap jet ;
-               surf(X,Y,ita4(3:length(x)+2,3:length(y)+2));
-               caxis([-8.6 8.6]);
-               shading interp;
-               view(0,90)
-               contour3(X,Y,h(3:length(x)+2,3:length(x)+2),1000:1000:8000,'w');
-               xlabel('Longitude(¢XE)')
-               ylabel('Latitude(¢XN)')
-               axis([X(1) X(j) Y(1) Y(i)]);
-               hold off
+
+%%check simulational depth
+figure(1)
+contour(geox,geoy,abs(bathy),'k')
+hold on
+surf(geox,geoy,abs(drawh));
+view(2)
+xlabel('Longitude (\circE)','Fontsize',14)
+ylabel('Latitude (\circN)','Fontsize',14)
+shading interp
+c=colorbar('Location','southoutside');
+c.Ticks = [0:1000:10000];c.Label.String = 'Depth (m)';
+c.Label.FontSize = 14;
+caxis([0 10000])
+hold on
+contour(geox,geoy,abs(bathy),'k')
+hold off
+
+%%check initial wave height
+figure(2)
+surf(geox,geoy,eta0);
+view(2)
+xlabel('Longitude (\circE)','Fontsize',14)
+ylabel('Latitude (\circN)','Fontsize',14)
+shading interp
+colormap jet
+c=colorbar('Location','southoutside');
+c.Ticks = [-8:1:8];
+c.Label.String = '\eta (m)';
+c.Label.FontSize = 18;
+caxis([-8 8])
+hold on
+contour3(geox,geoy,abs(bathy),'w')
+zlim([0 10000])
+grid off
+hold off
+
+%%K0 = 1/h0*sqrt(3*H/4/h0);
+X = X.*90*1000;
+Y = Y.*111*1000;
+
+%%set x,y matrix & combine all space x,y to cell
+x = linspace(X(1),X(1200),1200);
+y = linspace(Y(1),Y(1200),1200);
+deltax = x(2)-x(1);
+deltay = y(2)-y(1);
+xycell = {x;y};
+
+%%set start time,end time,delta time
+starttime = 0;
+endtime = 3600;
+
+%%define each eta,velocity zero matrix to save space & time's matrix
+ng1 = zeros(length(x),1);
+U1 = zeros(length(x),1);
+V1 = zeros(length(y),1);
+
+%%calculate initial wave height and velocity(1)
+R = 0;
+for B = 1 : 1
+   for j = 1 : length(xycell{2,B})
+    for i = 1 : length(xycell{1,B})
+    wcell{2+R,1}(j,i) = 0;
+    wcell{3+R,1}(j,i) = 0;
+    end
+   end
+   wcell{1+R,1} = interp2(X,Y',eta0,x,y');
+   R = R + 4;
+end
+
+%%check initial wave height which was interped
+figure(3)
+contour3(geox,geoy,abs(bathy),'w')
+grid off
+hold on
+surf(geox,geoy,eta0);
+view(2)
+xlabel('Longitude (\circE)','Fontsize',14)
+ylabel('Latitude (\circN)','Fontsize',14)
+shading interp
+colormap jet
+c=colorbar('Location','southoutside');
+c.Ticks = [-8:1:8];
+c.Label.String = '\eta (m)';
+c.Label.FontSize = 14;
+caxis([-8 8])
+hold on
+contour(geox,geoy,abs(bathy),'k')
+hold on
+plot([x(1)+5*deltax x(1)+5*deltax]/90/1000,[y(1) y(1200)]/111/1000,'-.k','Linewidth',1.5)
+hold on
+plot([x(1200)-5*deltax x(1200)-5*deltax]/90/1000,[y(1) y(1200)]/111/1000,'-.k','Linewidth',1.5)
+hold on
+plot([x(1) x(1200)]/90/1000,[y(1)+5*deltax y(1)+5*deltax]/111/1000,'-.k','Linewidth',1.5)
+hold on
+plot([x(1) x(1200)]/90/1000,[y(1200)-5*deltax y(1200)-5*deltax]/111/1000,'-.k','Linewidth',1.5)
+hold off
+
+%%define water depth matrix
+hcell = cell(1,length(deltax));
+for p = 1 : 1
+    hcell{1,p} = interp2(X,Y',bathy,x,y'); 
+end
+hmax = max(abs(hcell{1,1}),[],'all');
+
+%%courant number limit
+for i = 1 : 1
+    tcell{1,i} = linspace(starttime,endtime,floor((endtime-starttime)/(0.9*deltax(1,i)/sqrt(g*hmax))+2));
+end
+
+for j = 1 : length(y)
+    for i = 1 : length(x)
+        if hcell{1,1}(j,i) < 0
+           hcell{1,1}(j,i) = -hcell{1,1}(j,i);
+        else
+           hcell{1,1}(j,i) = 0;
+        end
+    end
+end
+
+%%check water depth which was interped
+%{
+figure(1)
+surf(x,y,hcell{1,1});
+shading interp
+
+figure(2)
+surf(x,y,wcell{1,1});
+shading interp
+%}
+
+%%save time interval
+savetime = tcell{1,1}(1,2);
+%user want the data related time
+savecell = wcell;
+savecell{4,1} = 0;
+LL = 0;
+
+%%simulation begin
+for L = 1 : length(deltax)%different dx or dy set
+  %%ng,U,V,ng1st,U1st,V1st,ng2nd,U2nd,V2nd,ng3rd,U3rd,V3d, h are temporary variable in this
+  %%function at every iteration. Data will save in wcell finally.
+  if L ~= 1
+      LL = LL+4;
+  end
+  U = zeros(length(x)+4,length(y)+4);
+  V = zeros(length(x)+4,length(y)+4);
+  ng = zeros(length(x)+4,length(y)+4);
+  h = zeros(length(x)+4,length(y)+4);
+  U(3:length(x)+2,3:length(y)+2) = cell2mat(savecell(2+LL,1));
+  V(3:length(x)+2,3:length(y)+2) = cell2mat(savecell(3+LL,1));
+  ng(3:length(x)+2,3:length(y)+2) = cell2mat(savecell(1+LL,1));
+  tt = cell2mat(tcell(1,L));
+  h(3:length(x)+2,3:length(y)+2) = cell2mat(hcell(1,L));
+  dx = deltax(1,L);
+  dy = deltay(1,L);
+  U1st = zeros(length(x),length(y));
+  V1st = zeros(length(x),length(y));
+  ng1st = zeros(length(x),length(y));
+  U2nd = zeros(length(x),length(y));
+  V2nd = zeros(length(x),length(y));
+  ng2nd = zeros(length(x),length(y));
+  U3rd = zeros(length(x),length(y));
+  V3rd = zeros(length(x),length(y));
+  ng3rd = zeros(length(x),length(y));
+  ngR = cell2mat(savecell(1+LL,1));
+  UR = cell2mat(savecell(2+LL,1));
+  VR = cell2mat(savecell(3+LL,1));
+  
+  savetimecount = 1;
+  %Save data setting
+  %ex:if want interval with 3 second to save data,
+  %but delta t is 1.15 then use 3.3 second(1.15*2) to save data
+  %savecell{3,:} will save the really time
+  timeindex = round(savetime/(tt(1,2) - tt(1,1)));
+  timeiterinti = 1;
+  timeiter(1,1) = 1;
+  for i = 1 :  length(tt(1,:))
+      if timeiterinti < (length(tt(1,:)))
+      timeiterinti = timeiterinti + timeindex;
+      timeiter(1,i) = timeiterinti;
+      end
+  end
+  for n = 2 : (length(tt(1,:))-1)%each time
+    %delta t
+    dt = tt(1,n+1) - tt(1,n);
+     for E = 1 : 3%SSPRK 3 round
+     ng(:,1) = ng (:,5);
+      ng(:,2) = ng (:,4);
+      U(:,1) = -U (:,5);
+      U(:,2) = -U (:,4);
+      V(1,:) = -V (5,:);
+      V(2,:) = -V (4,:);
+      ng(1,:) = ng (5,:);
+      ng(2,:) = ng (4,:);
+      ng(:,length(x)+2+1) = ng (:,length(x)+2-1);
+      ng(:,length(x)+2+2) = ng (:,length(x)+2-2);
+      ng(length(y)+2+1,:) = ng(length(y)+2-1,:);
+      ng(length(y)+2+2,:) = ng(length(y)+2-2,:);
+      U(:,length(x)+2+1) = -U(:,length(x)+2-1);
+      U(:,length(x)+2+2) = -U(:,length(x)+2-2);
+      U(length(y)+2+1,:) = U(length(y)+2-1,:);
+      U(length(y)+2+2,:) = U(length(y)+2-2,:);
+      V(length(y)+2+1,:) = -V(length(y)+2-1,:);
+      V(length(y)+2+2,:) = -V(length(y)+2-2,:);
+      V(:,length(x)+2+1) = V(:,length(x)+2-1);
+      V(:,length(x)+2+2) = V(:,length(x)+2-2);
+      
+      h(:,1) = h(:,5);
+      h(:,2) = h(:,4);
+      h(1,:) = h (5,:);
+      h(2,:) = h (4,:);
+      h(:,length(x)+2+1) = h(:,length(x)+2-1);
+      h(:,length(x)+2+2) = h(:,length(x)+2-2);
+      h(length(y)+2+1,:) = h (length(y)+2-1,:);
+      h(length(y)+2+2,:) = h (length(y)+2-2,:);
+     for j = 3 : length(y)+2%each y points in space
+      for i = 3 : length(x)+2%each x points in space
+      
+      UM = U(j,i-1);
+      UMM = U(j,i-2);
+      VM = V(j-1,i);
+      VMM = V(j-2,i);
+      ngxM = ng(j,i-1);
+      ngxMM = ng(j,i-2);
+      ngyM = ng(j-1,i);
+      ngyMM = ng(j-2,i);
+      
+      UP =  U(j,i+1);
+      UPP = U(j,i+2);
+      VP =  V(j+1,i);
+      VPP = V(j+2,i);
+      ngxP = ng(j,i+1);
+      ngxPP = ng(j,i+2);
+      ngyP = ng(j+1,i);
+      ngyPP = ng(j+2,i);
+      
+      hxM = h(j,i-1);
+      hxMM = h(j,i-2);
+      hxP = h(j,i+1);
+      hxPP = h(j,i+2);
+      hyM = h(j-1,i);
+      hyMM = h(j-2,i);
+      hyP = h(j+1,i);
+      hyPP = h(j+2,i);
+      %end
+        if E == 1
+        %first round
+        ng1st(j-2,i-2) = ngR(j-2,i-2) - dt/12/dx*(-UPP*hxPP+8*UP*hxP-8*UM*hxM+UMM*hxMM)-dt/12/dy*(-VPP*hyPP+8*VP*hyP-8*VM*hyM+VMM*hyMM);
+        U1st(j-2,i-2) = UR(j-2,i-2) - dt/12/dx*g*(-ngxPP+8*ngxP-8*ngxM+ngxMM);
+        V1st(j-2,i-2) = VR(j-2,i-2) - dt/12/dy*g*(-ngyPP+8*ngyP-8*ngyM+ngyMM);
+        if j == length(y)+2 && i == length(x)+2
+        U(3:(length(x)+2),3:(length(y)+2)) = U1st;
+        V(3:length(x)+2,3:length(y)+2) = V1st;
+        ng(3:length(x)+2,3:length(y)+2) = ng1st;
+        end
+        elseif E == 2
+        %Second round
+        ng2nd(j-2,i-2) = 3/4*ngR(j-2,i-2)+1/4*ng1st(j-2,i-2) - 1/4*dt/12/dx*(-UPP*hxPP+8*UP*hxP-8*UM*hxM+UMM*hxMM)- 1/4*dt/12/dy*(-VPP*hyPP+8*VP*hyP-8*VM*hyM+VMM*hyMM);
+        U2nd(j-2,i-2) = 3/4*UR(j-2,i-2)+1/4*U1st(j-2,i-2) - 1/4*dt/12/dx*g*(-ngxPP+8*ngxP-8*ngxM+ngxMM);
+        V2nd(j-2,i-2) = 3/4*VR(j-2,i-2)+1/4*V1st(j-2,i-2) - 1/4*dt/12/dy*g*(-ngyPP+8*ngyP-8*ngyM+ngyMM);
+        if j == length(y)+2 && i == length(x)+2
+        U(3:length(x)+2,3:length(y)+2) = U2nd;
+        V(3:length(x)+2,3:length(y)+2) = V2nd;
+        ng(3:length(x)+2,3:length(y)+2) = ng2nd;
+        end
+        elseif E == 3 
+        %Third round
+        %sponge layer
+          Ls = 5*deltax;
+          if abs(x(i-2)-X(1200)) <= Ls 
+          alphax = 0.5 - 0.5*cos(abs(x(i-2)-X(1200))*pi/Ls);
+          else
+          alphax = 1;
+          end
+          if abs(y(j-2)-Y(1200)) <= Ls
+          alphay = 0.5 - 0.5*cos(abs(y(j-2)-Y(1200))*pi/Ls);
+          elseif abs(y(j-2)-Y(1)) <= Ls
+          alphay = 0.5 - 0.5*cos(abs(y(j-2)-Y(1200))*pi/Ls);
+          else
+          alphay = 1;
+          end
+        ng3rd(j-2,i-2) = alphax*alphay*(1/3*ngR(j-2,i-2)+2/3*ng2nd(j-2,i-2) - 2/3*dt/12/dx*(-UPP*hxPP+8*UP*hxP-8*UM*hxM+UMM*hxMM)-2/3*dt/12/dy*(-VPP*hyPP+8*VP*hyP-8*VM*hyM+VMM*hyMM));
+        U3rd(j-2,i-2) = alphax*alphay*(1/3*UR(j-2,i-2)+2/3*U2nd(j-2,i-2) - 2/3*dt/12/dx*g*(-ngxPP+8*ngxP-8*ngxM+ngxMM));
+        V3rd(j-2,i-2) = alphax*alphay*(1/3*VR(j-2,i-2)+2/3*V2nd(j-2,i-2) - 2/3*dt/12/dy*g*(-ngyPP+8*ngyP-8*ngyM+ngyMM));
+        if j == length(y)+2 && i == length(x)+2
+        ng(3:length(x)+2,3:length(y)+2) = ng3rd;
+        U(3:length(x)+2,3:length(y)+2) = U3rd;
+        V(3:length(x)+2,3:length(y)+2) = V3rd;
+        ngR = ng3rd;
+        UR = U3rd;
+        VR = V3rd;
+        end
+        else
+        end
+       end
+      end
+    end
+        %information of ng3rd, U3rd, and V3rd is next time condition.
+        %if intermediate iteration infor doesn't want,then ng(:,now) and
+        %will be replaced ng3rd & U3rd & V3rd
+        if n ~= (length(tt(1,:))-1)
+        ng(3:length(x)+2,3:length(y)+2) = ng3rd;
+        U(3:length(x)+2,3:length(y)+2) = U3rd;
+        V(3:length(x)+2,3:length(y)+2) = V3rd;
+        ngR = ng3rd;
+        UR = U3rd;
+        VR = V3rd;
+        end
+        %{
+        %if starttime isn't 0,then must not save initial condition
+        if starttime ~= 0
+           savecell{LL+1,1} = 0;
+           savetimecount = 0;
+        end
+        %}
+        %if n equals timeiter, then save data
+        %{
+        %if n equals timeiter, then save data
+        %for p = 1 : length(timeiter)
+            if n == timeiter(1,p)
+              savetimecount = savetimecount + 1;
+              savecell{LL+1,savetimecount} = ng3rd;
+              savecell{LL+2,savetimecount} = U3rd;
+              savecell{LL+3,savetimecount} = V3rd;
+              savecell{LL+4,savetimecount} = tt(1,n);
+            end
+           end
+        end
+        %}
+  end
+  %save end time's data
+  savetimecount = savetimecount + 1;
+  savecell{LL+1,savetimecount} = ng3rd;
+  savecell{LL+2,savetimecount} = U3rd;
+  savecell{LL+3,savetimecount} = V3rd;
+  savecell{LL+4,savetimecount} = endtime; 
+end
+
+%plot coastline
+for j = 1 : length(y)
+    for i = 1 : length(x)
+        if hcell{1,1}(j,i) == 0
+           geo(j,i) = 1;
+        else 
+           geo(j,i) = 0;
+        end
+    end
+end
+
+for K =  1 : length(savecell(1,:))
+   for j = 1 : length(y)
+    for i = 1 : length(x)
+        if hcell{1,1}(j,i) == 0
+           savecell{1,K}(j,i) = NaN;
+        end
+    end
+   end
+end
+
+%%plot code
+figure(3)
+for i = 1:20:length(savecell(1,:))
+contour(x,y,geo,'k');
+colormap default
+hold on
+[xx, yy] = meshgrid(x, y);
+P = surf(xx, yy, savecell{1,i});
+zlim([-100 100])
+ylim([Y(1) Y(1200)])
+xlim([X(1) X(1200)])
+xlabel('x(m)','Fontsize',14)
+ylabel('y(m)','Fontsize',14)
+shading interp
+view(2)
+c=colorbar('Location','southoutside');
+c.Ticks = [-8:1:8];
+caxis([-8 8])
+c.Label.String = '\eta(m)';
+c.Label.FontSize = 14;
+colormap jet
+hold on
+contour(x,y,hcell{1,1},'w')
+hold off
+drawnow
 end
