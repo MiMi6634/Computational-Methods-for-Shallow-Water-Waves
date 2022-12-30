@@ -149,6 +149,7 @@ for i = 1 : 1
     tcell{1,i} = linspace(starttime,endtime,floor((endtime-starttime)/(0.9*deltax(1,i)/sqrt(g*hmax))+2));
 end
 
+%water depth must be positive. negative data need to tranfer to positive
 for j = 1 : length(y)
     for i = 1 : length(x)
         if hcell{1,1}(j,i) < 0
