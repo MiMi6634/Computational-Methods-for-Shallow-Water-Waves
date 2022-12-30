@@ -1,5 +1,5 @@
 %This ia a final project of Computational Methods for Shallow Water Waves
-%We used 2D Linear Shallow water to simulate tsunami at Japan on March 11th in 2011
+%We used 2D Linear Shallow water to simulate tsunami at Japan on March 11 in 2011
 %The method we use includes finite difference methods, sponger layer and three orders of strong-stability preserving runge-kutta time-steppers
 
 %%%%%%%%%%%%%TSUNAMI SIMULATION%%%%%%%%%%%%%%
@@ -17,7 +17,7 @@ geox = X;
 geoy = Y;
 drawh = bathy;
 
-%%depth of land is set NaN 
+%%depth of land is set NaN. positive depth is set 0  
 for j = 1 : length(geoy)
     for i = 1 : length(geox)
         if bathy(j,i) >= 0
