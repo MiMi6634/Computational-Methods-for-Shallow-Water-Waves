@@ -400,7 +400,7 @@ for K =  1 : length(savecell(1,:))
    end
 end
 
-%%plot code
+%%plot 
 figure(3)
 for i = 1:20:length(savecell(1,:))
 contour(x,y,geo,'k');
